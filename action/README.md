@@ -43,7 +43,7 @@ jobs:
       id-token: write
       contents: read
     steps:
-      - uses: WileyLabs/cloudflare-sts/action@TAG
+      - uses: WileyLabs/cloudflare-sts/action@v0.0.1
         with:
           ttl-seconds: 300
           permissions: DNS Read
@@ -62,7 +62,7 @@ jobs:
     workload_identity_provider: projects/…/workloadIdentityPools/github/providers/github-actions
     service_account: sa-ci@example-project.iam.gserviceaccount.com
 - uses: google-github-actions/setup-gcloud@v2
-- uses: WileyLabs/cloudflare-sts/action@TAG
+- uses: WileyLabs/cloudflare-sts/action@v0.0.1
   with:
     jwt-command: gcloud auth print-identity-token --audiences=cf-sts.example.com --include-email
     permissions: DNS Read
@@ -71,7 +71,7 @@ jobs:
 ### SPIFFE / SPIRE
 
 ```yaml
-- uses: WileyLabs/cloudflare-sts/action@TAG
+- uses: WileyLabs/cloudflare-sts/action@v0.0.1
   with:
     jwt-command: >
       spire-agent api fetch jwt -audience cf-sts.example.com

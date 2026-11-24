@@ -57,7 +57,7 @@ Workflows under [`.github/workflows/`](./.github/workflows/) are **reference for
 ```yaml
 permissions: { id-token: write, contents: read }
 steps:
-  - uses: WileyLabs/cloudflare-sts/action@TAG
+  - uses: WileyLabs/cloudflare-sts/action@v0.0.1
     with: { ttl-seconds: 300 }
   # $CLOUDFLARE_API_TOKEN — revoked when the job ends
 ```
