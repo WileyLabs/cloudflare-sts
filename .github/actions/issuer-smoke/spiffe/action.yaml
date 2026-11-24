@@ -1,0 +1,52 @@
+name: issuer-smoke spiffe
+description: SPIRE JWT-SVID verifies at cf-sts (requires a SPIRE CSI socket on the runner)
+
+inputs:
+  cf_sts_url:
+    default: https://cf-sts.example.com
+  audience:
+    default: cf-sts.example.com
+  gcp_workload_identity_provider:
+    required: false
+    default: ''
+  gcp_service_account:
+    required: false
+    default: ''
+  spire_socket:
+    default: /spiffe-workload-api/spire-agent.sock
+
+runs:
+  using: composite
+  steps:
+    - name: Require SPIRE socket + install spire-agent CLI
+      shell: bash
+      env:
+        SPIRE_SOCKET: ${{ inputs.spire_socket }}
+      run: |
+        set -euo pipefail
+        chmod +x "${{ github.workspace }}/scripts/ci/"*.sh
+        if [ ! -S "$SPIRE_SOCKET" ]; then
+          echo "::error::No SPIRE socket at $SPIRE_SOCKET (use a SPIRE-capable runner)"
+          ls -la /spiffe-workload-api 2>/dev/null || true
+          exit 1
+        fi
+        bash "${{ github.workspace }}/scripts/ci/install-spire-agent.sh"
+
+    # Do not POST /token here — SPIRE caches the JWT-SVID; minting would burn jti
+    # and break issuer-usecase (token_replayed). Prove socket + SVID only; usecase mints.
+    - name: Fetch JWT-SVID (no mint)
+      shell: bash
+      env:
+        SPIRE_SOCKET: ${{ inputs.spire_socket }}
+        AUDIENCE: ${{ inputs.audience }}
+      run: |
+        set -euo pipefail
+        JWT=$(AUDIENCE="$AUDIENCE" SPIRE_SOCKET="$SPIRE_SOCKET" bash "${{ github.workspace }}/scripts/ci/fetch-spiffe-jwt.sh")
+        echo "::add-mask::$JWT"
+        claims=$(echo "$JWT" | cut -d. -f2 | bash "${{ github.workspace }}/scripts/ci/b64url-decode.sh")
+        echo "$claims" | jq '{iss, sub, aud}'
+        sub=$(echo "$claims" | jq -r '.sub // empty')
+        case "$sub" in
+          spiffe://example.com/*) echo "SPIFFE SVID ok" ;;
+          *) echo "::error::unexpected SPIFFE sub: ${sub:-empty}"; exit 1 ;;
+        esac

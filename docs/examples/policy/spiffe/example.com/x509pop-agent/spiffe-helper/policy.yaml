@@ -1,0 +1,17 @@
+# EXAMPLE — policy/spiffe/<trust-domain>/<path-prefix>/<workload>/
+description: Example SPIRE JWT-SVID rules
+
+rules:
+  - id: spiffe-helper-dns-read
+    principal: spiffe://example.com/x509pop-agent/*/spiffe-helper
+    max_ttl_seconds: 600
+    grants:
+      - profile: dns-read
+        zones: [example.com]
+
+  - id: spiffe-helper-exact
+    principal: spiffe://example.com/x509pop-agent/tools-5.int.example.com/spiffe-helper
+    max_ttl_seconds: 600
+    grants:
+      - profile: dns-read
+        zones: [example.com]

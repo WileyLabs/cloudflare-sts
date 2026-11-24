@@ -1,0 +1,7 @@
+terraform/.terraform/
+terraform/.build/
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/*.tfplan
+terraform/crash.log
+# keep the provider lock file committed

@@ -1,0 +1,41 @@
+name: issuer-smoke github
+description: GitHub OIDC JWT verifies at cf-sts (200 or 403 no_matching_rule)
+
+inputs:
+  cf_sts_url:
+    default: https://cf-sts.example.com
+  audience:
+    default: cf-sts.example.com
+  gcp_workload_identity_provider:
+    required: false
+    default: ''
+  gcp_service_account:
+    required: false
+    default: ''
+  spire_socket:
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Mint OIDC JWT
+      id: jwt
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const aud = '${{ inputs.audience }}';
+          const token = await core.getIDToken(aud);
+          core.setSecret(token);
+          core.setOutput('token', token);
+          const p = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString());
+          console.log(JSON.stringify({ iss: p.iss, sub: p.sub, aud: p.aud, repository: p.repository }, null, 2));
+
+    - name: Exchange at cf-sts
+      shell: bash
+      env:
+        JWT: ${{ steps.jwt.outputs.token }}
+        CF_STS_URL: ${{ inputs.cf_sts_url }}
+      run: |
+        chmod +x "${{ github.workspace }}/scripts/ci/"*.sh
+        bash "${{ github.workspace }}/scripts/ci/assert-cf-sts-exchange.sh"

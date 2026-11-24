@@ -1,0 +1,15 @@
+# github / example / example-app
+description: Example app — DNS Read on example.com
+
+rules:
+  - id: example-app-playground-dns-read
+    description: DNS Read for example-app on main
+    principal:
+      - repo:example/example-app:ref:refs/heads/main
+      - repo:example@00000000/example-app@5555555555:ref:refs/heads/main
+    claims:
+      job_workflow_ref: example/example-app/.github/workflows/dns.yml@refs/heads/main
+    max_ttl_seconds: 600
+    grants:
+      - profile: dns-read
+        zones: [example.com]

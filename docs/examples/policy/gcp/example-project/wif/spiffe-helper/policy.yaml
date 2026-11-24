@@ -1,0 +1,11 @@
+# EXAMPLE — policy/gcp/<project>/wif/<workload-slug>/
+description: Example SPIFFE→GCP WIF rule
+
+rules:
+  - id: spiffe-helper-wif-dns-read
+    principal: >-
+      principal://iam.googleapis.com/projects/000000000000/locations/global/workloadIdentityPools/spiffe-oidc-pool/subject/spiffe://example.com/x509pop-agent/tools-5.int.example.com/spiffe-helper
+    max_ttl_seconds: 600
+    grants:
+      - profile: dns-read
+        zones: [example.com]

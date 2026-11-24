@@ -1,0 +1,12 @@
+# aws / 123456789012 / user / cf-sts-aws-usecase-ci
+description: Example AWS IAM user → sts:GetWebIdentityToken → cf-sts
+
+rules:
+  - id: cloudflare-sts-ci-usecase-aws
+    description: IAM user minting DNS Read for the usecase check
+    # Exact JWT `sub`; confirm with `aws sts get-web-identity-token` after apply (see docs/issuers/aws.md).
+    principal: arn:aws:iam::123456789012:user/service/cf-sts-aws-usecase-ci
+    max_ttl_seconds: 300
+    grants:
+      - profile: dns-read
+        zones: [example.com]

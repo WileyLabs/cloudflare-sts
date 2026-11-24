@@ -1,0 +1,6 @@
+* @WileyLabs/cloudflare-sts-maintainers
+/policy/ @WileyLabs/cloudflare-sts-maintainers
+/policy.bundle.json @WileyLabs/cloudflare-sts-maintainers
+/src/ @WileyLabs/cloudflare-sts-maintainers
+/wrangler.toml @WileyLabs/cloudflare-sts-maintainers
+/.github/ @WileyLabs/cloudflare-sts-maintainers

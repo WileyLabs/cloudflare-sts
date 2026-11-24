@@ -1,0 +1,114 @@
+name: ci
+
+# PR merge gate only. Push to main does not re-run these — CD owns post-merge deploy + usecase.
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test (node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run verify:policy
+      - name: Dependency audit
+        run: npm audit --omit=dev --audit-level=high
+
+  issuer-smoke:
+    name: issuer-smoke
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - issuer: github
+            runs_on: ubuntu-latest
+          - issuer: gcp
+            runs_on: ubuntu-latest
+          - issuer: spiffe
+            runs_on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/reusable-issuer-smoke.yml
+    with:
+      issuer: ${{ matrix.issuer }}
+      runs_on: ${{ matrix.runs_on }}
+      cf_sts_url: https://cf-sts.example.com
+      audience: cf-sts.example.com
+
+  # Real mint → DNS. aws is a separate soft-skip job (not in reusable matrix).
+  issuer-usecase:
+    name: issuer-usecase
+    needs: issuer-smoke
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - issuer: github
+            runs_on: ubuntu-latest
+          - issuer: gcp
+            runs_on: ubuntu-latest
+          - issuer: spiffe
+            runs_on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/reusable-issuer-usecase.yml
+    with:
+      issuer: ${{ matrix.issuer }}
+      runs_on: ${{ matrix.runs_on }}
+      cf_sts_url: https://cf-sts.example.com
+      audience: cf-sts.example.com
+      allow_no_rule: false
+
+  issuer-usecase-aws:
+    name: issuer-usecase (aws)
+    needs: issuer-smoke
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/issuer-usecase/aws
+        with:
+          aws_access_key_id: ${{ secrets.CF_STS_AWS_ACCESS_KEY_ID }}
+          aws_secret_access_key: ${{ secrets.CF_STS_AWS_SECRET_ACCESS_KEY }}
+          # TODO: set to 'false' after infra/aws/issuer-usecase is applied and policy/issuers.yaml aws iss/jwks are real.
+          allow_no_rule: 'true'
+
+  # Single required check for branch rulesets (aggregates matrix + aws).
+  ci:
+    name: ci
+    if: ${{ always() }}
+    needs:
+      - test
+      - issuer-smoke
+      - issuer-usecase
+      - issuer-usecase-aws
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require all CI jobs green
+        run: |
+          echo "test=${{ needs.test.result }}"
+          echo "issuer-smoke=${{ needs.issuer-smoke.result }}"
+          echo "issuer-usecase=${{ needs.issuer-usecase.result }}"
+          echo "issuer-usecase-aws=${{ needs.issuer-usecase-aws.result }}"
+          test "${{ needs.test.result }}" = success
+          test "${{ needs.issuer-smoke.result }}" = success
+          test "${{ needs.issuer-usecase.result }}" = success
+          test "${{ needs.issuer-usecase-aws.result }}" = success

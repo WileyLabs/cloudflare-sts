@@ -1,0 +1,10 @@
+# EXAMPLE — policy/aws/<account>/eks/<sa-name>/
+description: Example EKS IRSA rule
+
+rules:
+  - id: eks-cf-sts-client-dns-read
+    principal: system:serviceaccount:default:cf-sts-client
+    max_ttl_seconds: 600
+    grants:
+      - profile: dns-read
+        zones: [example.com]

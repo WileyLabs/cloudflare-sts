@@ -1,0 +1,56 @@
+{
+  "audience": "cf-sts.example.com",
+  "issuers": {
+    "https://token.actions.githubusercontent.com": "https://token.actions.githubusercontent.com/.well-known/jwks"
+  },
+  "profiles": {
+    "dns": { "permissions": ["DNS Read", "DNS Write"] }
+  },
+  "rules": [
+    {
+      "id": "terraform-cf-main-dns",
+      "issuer": "https://token.actions.githubusercontent.com",
+      "principal": "repo:example/terraform-cf:ref:refs/heads/main",
+      "claims": {
+        "job_workflow_ref": "example/terraform-cf/.github/workflows/*@refs/heads/main"
+      },
+      "description": "fixture: DNS Write",
+      "max_ttl_seconds": 900,
+      "policies": [
+        {
+          "permission_groups": ["4755a26eedb94da69e1066d98aa820be"],
+          "resources": { "com.cloudflare.api.account.zone.0123456789abcdef0123456789abcdef": "*" }
+        }
+      ]
+    },
+    {
+      "id": "pinned-ip-read",
+      "description": "fixture: second rule with client_ips",
+      "issuer": "https://token.actions.githubusercontent.com",
+      "principal": [
+        "repo:example/ip-pinned:ref:refs/heads/main",
+        "repo:example/ip-pinned:ref:refs/heads/release"
+      ],
+      "max_ttl_seconds": 600,
+      "client_ips": ["203.0.113.0/24"],
+      "policies": [
+        {
+          "permission_groups": ["82e64a83756745bbbb1c9c2701bf816b"],
+          "resources": { "com.cloudflare.api.account.zone.0123456789abcdef0123456789abcdef": "*" }
+        }
+      ]
+    },
+    {
+      "id": "grants-demo",
+      "description": "fixture: name-based grants, profiles and narrowing",
+      "issuer": "https://token.actions.githubusercontent.com",
+      "principal": "repo:example/grants-demo:ref:refs/heads/main",
+      "max_ttl_seconds": 600,
+      "grants": [
+        { "profile": "dns", "zones": ["example.com"] },
+        { "permissions": ["Account Settings Read"] },
+        { "permissions": ["Workers Routes Write"], "zones": ["*"] }
+      ]
+    }
+  ]
+}

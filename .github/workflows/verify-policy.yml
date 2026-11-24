@@ -1,0 +1,26 @@
+# YAML syntax + JSON Schema + Worker semantic validation for policy/
+# Always on PRs so it can be a required merge check (bundle is generated, not committed).
+name: verify-policy
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: verify-policy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Schema + semantic verification
+        run: npm run verify:policy
+      - name: Build policy bundle (generated artifact)
+        run: npm run build:policy

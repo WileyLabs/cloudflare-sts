@@ -1,0 +1,20 @@
+# Reusable grant profiles — grants: [{ profile: dns-read, zones: [example.com] }]
+
+dns-read:
+  permissions: [DNS Read]
+
+worker-deploy-account:
+  permissions:
+    - Workers Scripts Write
+    - Workers KV Storage Write
+    - D1 Write
+    - Account Settings Read
+    - Secrets Store Write
+    # vpc_network (tunnel/Mesh) bindings need Admin; Bind alone is for VPC Services only
+    - Connectivity Directory Admin
+
+worker-deploy-zone:
+  permissions:
+    - Workers Routes Write
+    - DNS Write
+    - Zone Read

@@ -1,0 +1,62 @@
+name: issuer-usecase gcp
+description: GCP WIF → generateIdToken → cf-sts mint → DNS Read → post-revoke
+
+inputs:
+  cf_sts_url:
+    default: https://cf-sts.example.com
+  audience:
+    default: cf-sts.example.com
+  allow_no_rule:
+    default: 'false'
+  gcp_workload_identity_provider:
+    default: projects/000000000000/locations/global/workloadIdentityPools/github/providers/github-actions
+  gcp_service_account:
+    default: sa-ci@example-project.iam.gserviceaccount.com
+  spire_socket:
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    # WIF → auth_token (federated). jwt-command mints a fresh SA ID token per
+    # cf-sts call (mint + post-revoke) via IAM generateIdToken — same as
+    # google-github-actions/auth token_format=id_token, without setup-gcloud.
+    - name: Authenticate to Google (WIF)
+      id: auth
+      continue-on-error: ${{ inputs.allow_no_rule == 'true' }}
+      uses: google-github-actions/auth@v2
+      with:
+        workload_identity_provider: ${{ inputs.gcp_workload_identity_provider }}
+        service_account: ${{ inputs.gcp_service_account }}
+
+    - name: Export WIF auth_token for jwt-command
+      if: steps.auth.outcome == 'success'
+      shell: bash
+      run: |
+        echo "::add-mask::${{ steps.auth.outputs.auth_token }}"
+        echo "GCP_AUTH_TOKEN=${{ steps.auth.outputs.auth_token }}" >> "$GITHUB_ENV"
+
+    - name: Mint Cloudflare token (GCP ID token via jwt-command)
+      id: sts
+      if: steps.auth.outcome == 'success'
+      continue-on-error: ${{ inputs.allow_no_rule == 'true' }}
+      uses: ./action
+      with:
+        url: ${{ inputs.cf_sts_url }}
+        audience: ${{ inputs.audience }}
+        ttl-seconds: '120'
+        permissions: DNS Read
+        jwt-command: AUDIENCE=${{ inputs.audience }} SA_EMAIL=${{ inputs.gcp_service_account }} bash ${{ github.workspace }}/scripts/ci/fetch-gcp-id-token.sh
+
+    - name: Fetch DNS for cf-sts.example.com
+      if: steps.sts.outcome == 'success'
+      shell: bash
+      run: |
+        chmod +x "${{ github.workspace }}/scripts/ci/assert-cf-dns-read.sh"
+        bash "${{ github.workspace }}/scripts/ci/assert-cf-dns-read.sh"
+
+    - name: Soft-skip when allow_no_rule
+      if: inputs.allow_no_rule == 'true' && steps.sts.outcome != 'success'
+      shell: bash
+      run: echo "::warning::gcp usecase soft-skip (WIF grant and/or cf-sts policy). Apply terraform-gcp WIF + deploy policy."

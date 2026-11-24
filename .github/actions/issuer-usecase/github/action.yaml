@@ -1,0 +1,44 @@
+name: issuer-usecase github
+description: GitHub OIDC → cf-sts mint → DNS Read on cf-sts.example.com → post-revoke
+
+inputs:
+  cf_sts_url:
+    default: https://cf-sts.example.com
+  audience:
+    default: cf-sts.example.com
+  allow_no_rule:
+    default: 'false'
+  gcp_workload_identity_provider:
+    required: false
+    default: ''
+  gcp_service_account:
+    required: false
+    default: ''
+  spire_socket:
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Mint Cloudflare token (GitHub OIDC)
+      id: sts
+      continue-on-error: ${{ inputs.allow_no_rule == 'true' }}
+      uses: ./action
+      with:
+        url: ${{ inputs.cf_sts_url }}
+        audience: ${{ inputs.audience }}
+        ttl-seconds: '120'
+        permissions: DNS Read
+
+    - name: Fetch DNS for cf-sts.example.com
+      if: steps.sts.outcome == 'success'
+      shell: bash
+      run: |
+        chmod +x "${{ github.workspace }}/scripts/ci/assert-cf-dns-read.sh"
+        bash "${{ github.workspace }}/scripts/ci/assert-cf-dns-read.sh"
+
+    - name: Bootstrap soft-skip
+      if: steps.sts.outcome != 'success' && inputs.allow_no_rule == 'true'
+      shell: bash
+      run: echo "::warning::github usecase mint failed (allow_no_rule). Soft-skip until policy is on prod."

@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cf-sts.example.com/schema/config.schema.json",
+  "title": "cf-sts policy config",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["audience"],
+  "properties": {
+    "audience": { "type": "string", "minLength": 1, "maxLength": 256 }
+  }
+}

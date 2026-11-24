@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cf-sts.example.com/schema/resource-policy.schema.json",
+  "title": "cf-sts resource[/principal] policy.yaml",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["rules"],
+  "properties": {
+    "description": { "type": "string", "maxLength": 500 },
+    "rules": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/rule" }
+    }
+  },
+  "$defs": {
+    "rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "principal", "max_ttl_seconds"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[A-Za-z0-9._-]{1,64}$" },
+        "description": { "type": "string", "maxLength": 200 },
+        "issuer": {
+          "type": "string",
+          "description": "Short provider name (github|gcp|spiffe|aws) or full iss URL. Default: path provider."
+        },
+        "principal": {
+          "description": "Caller identity: GitHub sub, GCP SA email / principal://, SPIFFE ID, AWS sub. List = OR.",
+          "oneOf": [
+            { "type": "string", "minLength": 1, "maxLength": 512 },
+            {
+              "type": "array",
+              "minItems": 1,
+              "items": { "type": "string", "minLength": 1, "maxLength": 512 }
+            }
+          ]
+        },
+        "claims": {
+          "type": "object",
+          "description": "Optional extra JWT claims that must also match (e.g. job_workflow_ref).",
+          "additionalProperties": {
+            "oneOf": [
+              { "type": "string", "minLength": 1, "maxLength": 256 },
+              {
+                "type": "array",
+                "minItems": 1,
+                "items": { "type": "string", "minLength": 1, "maxLength": 256 }
+              }
+            ]
+          }
+        },
+        "max_ttl_seconds": { "type": "integer", "minimum": 60, "maximum": 86400 },
+        "client_ips": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "grants": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/grant" }
+        },
+        "policies": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/rawPolicy" }
+        }
+      },
+      "anyOf": [{ "required": ["grants"] }, { "required": ["policies"] }]
+    },
+    "grant": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "permissions": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1, "maxLength": 128 }
+        },
+        "profile": { "type": "string", "pattern": "^[A-Za-z0-9._-]{1,64}$" },
+        "zones": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      },
+      "oneOf": [{ "required": ["permissions"] }, { "required": ["profile"] }]
+    },
+    "rawPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["permission_groups", "resources"],
+      "properties": {
+        "effect": { "type": "string", "enum": ["allow", "deny"] },
+        "permission_groups": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1, "maxLength": 128 }
+        },
+        "resources": {
+          "type": "object",
+          "minProperties": 1
+        }
+      }
+    }
+  }
+}

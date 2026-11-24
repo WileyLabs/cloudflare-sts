@@ -1,0 +1,52 @@
+name = "cloudflare-sts"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+workers_dev = false
+# Preview URLs would bypass the zone WAF that protects the custom domain.
+preview_urls = false
+
+# Creates the DNS record + certificate automatically (zone must be in this account).
+routes = [{ pattern = "cf-sts.example.com", custom_domain = true }]
+
+# Hourly cleanup of expired sts/* tokens in the Cloudflare account (the parent token needs permission to list and delete account tokens).
+[triggers]
+crons = ["17 * * * *"]
+
+# Workers Logs: the mint/deny/revoke JSON events are the audit fallback when D1 is unavailable.
+[observability]
+enabled = true
+
+[vars]
+CLEANUP_DRY_RUN = "false"  # real deletes of expired sts/* tokens (set "true" to log-only)
+CF_ACCOUNT_ID = "YOUR_CLOUDFLARE_ACCOUNT_ID"
+# Optional second layer for the dashboard (GET / and /api/mints) behind Cloudflare Access.
+# Set both to require a valid Cf-Access-Jwt-Assertion: team domain and the Access application's AUD tag.
+# ACCESS_TEAM_DOMAIN = "<team>.cloudflareaccess.com"
+# ACCESS_AUD = "<application AUD tag>"
+
+# npx wrangler secrets-store store create sts --remote
+# npx wrangler secrets-store secret create <STORE_ID> --name cf-parent-token --scopes workers --remote
+[[secrets_store_secrets]]
+binding = "CF_PARENT_TOKEN"
+store_id = "YOUR_SECRETS_STORE_ID"
+secret_name = "cf-parent-token"
+
+# Per-IP (pre-auth) and per-subject (post-auth) limits on /token and /revoke; the Worker fails closed without it.
+[[ratelimits]]
+name = "RATE_LIMIT"
+namespace_id = "1001"
+simple = { limit = 10, period = 60 }
+
+# Dashboard API calls (/api/*) get their own, more generous bucket.
+[[ratelimits]]
+name = "DASH_LIMIT"
+namespace_id = "1002"
+simple = { limit = 60, period = 60 }
+
+# Audit log of mints (no token values) and single-use JWT ids (replay protection; the Worker fails closed without it).
+# Schema: npx wrangler d1 migrations apply DB --remote   (apply BEFORE deploying a version that needs a new migration)
+[[d1_databases]]
+binding = "DB"
+database_name = "cloudflare-sts"
+database_id = "YOUR_D1_DATABASE_ID"
+migrations_dir = "migrations"

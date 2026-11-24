@@ -1,0 +1,12 @@
+# EXAMPLE — policy/github/<org>/<repo>/<principal-slug>/
+description: Example GitHub Actions rule
+
+rules:
+  - id: example-repo-dns-read
+    principal: repo:example/example-repo:ref:refs/heads/main
+    claims:
+      job_workflow_ref: example/example-repo/.github/workflows/dns.yml@refs/heads/main
+    max_ttl_seconds: 600
+    grants:
+      - profile: dns-read
+        zones: [example.com]

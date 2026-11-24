@@ -1,0 +1,43 @@
+name: Cloudflare STS
+description: 'Exchanges the job GitHub OIDC token for a short-lived Cloudflare API token through the cf-sts Worker and revokes it when the job ends, even if the job fails'
+
+inputs:
+  url:
+    description: 'cf-sts base URL. Default: https://cf-sts.example.com'
+    required: False
+    default: 'https://cf-sts.example.com'
+  audience:
+    description: 'OIDC audience cf-sts expects. Default: cf-sts.example.com'
+    required: False
+    default: 'cf-sts.example.com'
+  ttl-seconds:
+    description: 'Requested token lifetime in seconds (60-86400), capped by the matching rule. Default: 600'
+    required: False
+    default: '600'
+
+  permissions:
+    description: 'Optional: only these permission names (comma or newline separated), narrowing what the matching rule grants, e.g. "DNS Read". Default: everything the rule grants'
+    required: False
+    default: ''
+
+  jwt-command:
+    description: 'Optional shell command that prints a fresh OIDC JWT (stdout). Used for mint and post-revoke instead of GitHub OIDC — e.g. gcloud auth print-identity-token --audiences=… --include-email, or spire-agent api fetch jwt …'
+    required: False
+    default: ''
+
+outputs:
+  token:
+    description: 'The Cloudflare API token (masked in logs). Also exported as CLOUDFLARE_API_TOKEN'
+  token-id:
+    description: 'The Cloudflare token id'
+  expires-on:
+    description: 'Token expiry (RFC 3339)'
+  rule:
+    description: 'The cf-sts policy rule that matched'
+
+runs:
+  using: 'node24'
+  main: 'index.mjs'
+  # The post step revokes the token at the end of the job, whatever its result.
+  post: 'index.mjs'
+  post-if: 'always()'

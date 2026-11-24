@@ -1,0 +1,2 @@
+# Global cf-sts audience. All issuer JWTs must carry this aud.
+audience: cf-sts.example.com

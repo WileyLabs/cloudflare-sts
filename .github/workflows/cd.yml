@@ -1,0 +1,85 @@
+name: cd
+
+# Deploys on push to main. PR already ran unit/smoke/usecase/verify — this workflow
+# mints via cf-sts, deploys, then re-runs hard issuer-usecase against production.
+# Bootstrap: the first deploy of cloudflare-sts-deploy must be local (npx wrangler deploy).
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cd-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Mint Cloudflare token via cf-sts
+        uses: ./action
+        with:
+          ttl-seconds: 900
+
+      - name: Apply D1 migrations
+        run: npx wrangler d1 migrations apply DB --remote
+
+      - name: Deploy Worker
+        run: npm run deploy
+
+  issuer-usecase:
+    name: issuer-usecase
+    needs: deploy
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - issuer: github
+            runs_on: ubuntu-latest
+          - issuer: gcp
+            runs_on: ubuntu-latest
+          - issuer: spiffe
+            runs_on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/reusable-issuer-usecase.yml
+    with:
+      issuer: ${{ matrix.issuer }}
+      runs_on: ${{ matrix.runs_on }}
+      cf_sts_url: https://cf-sts.example.com
+      audience: cf-sts.example.com
+      allow_no_rule: false
+
+  issuer-usecase-aws:
+    name: issuer-usecase (aws)
+    needs: deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/issuer-usecase/aws
+        with:
+          aws_access_key_id: ${{ secrets.CF_STS_AWS_ACCESS_KEY_ID }}
+          aws_secret_access_key: ${{ secrets.CF_STS_AWS_SECRET_ACCESS_KEY }}
+          # TODO: set to 'false' after infra/aws/issuer-usecase is applied and policy/issuers.yaml aws iss/jwks are real.
+          allow_no_rule: 'true'

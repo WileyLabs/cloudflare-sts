@@ -1,0 +1,57 @@
+name: issuer-usecase spiffe
+description: SPIRE JWT-SVID → cf-sts mint → DNS Read → post-revoke (SPIRE-capable runner)
+
+inputs:
+  cf_sts_url:
+    default: https://cf-sts.example.com
+  audience:
+    default: cf-sts.example.com
+  allow_no_rule:
+    default: 'false'
+  gcp_workload_identity_provider:
+    required: false
+    default: ''
+  gcp_service_account:
+    required: false
+    default: ''
+  spire_socket:
+    default: /spiffe-workload-api/spire-agent.sock
+
+runs:
+  using: composite
+  steps:
+    - name: Require SPIRE socket + install spire-agent CLI
+      id: spire
+      shell: bash
+      env:
+        SPIRE_SOCKET: ${{ inputs.spire_socket }}
+      run: |
+        set -euo pipefail
+        chmod +x "${{ github.workspace }}/scripts/ci/"*.sh
+        if [ ! -S "$SPIRE_SOCKET" ]; then
+          echo "::error::No SPIRE socket at $SPIRE_SOCKET (use a SPIRE-capable runner)"
+          ls -la /spiffe-workload-api 2>/dev/null || true
+          exit 1
+        fi
+        bash "${{ github.workspace }}/scripts/ci/install-spire-agent.sh"
+
+    - name: Mint Cloudflare token (SPIFFE via jwt-command)
+      id: sts
+      continue-on-error: ${{ inputs.allow_no_rule == 'true' }}
+      uses: ./action
+      with:
+        url: ${{ inputs.cf_sts_url }}
+        audience: ${{ inputs.audience }}
+        ttl-seconds: '120'
+        permissions: DNS Read
+        jwt-command: AUDIENCE=${{ inputs.audience }} SPIRE_SOCKET=${{ inputs.spire_socket }} bash ${{ github.workspace }}/scripts/ci/fetch-spiffe-jwt.sh
+
+    - name: Fetch DNS for cf-sts.example.com
+      if: steps.sts.outcome == 'success'
+      shell: bash
+      run: bash "${{ github.workspace }}/scripts/ci/assert-cf-dns-read.sh"
+
+    - name: Soft-skip mint when allow_no_rule
+      if: inputs.allow_no_rule == 'true' && steps.sts.outcome != 'success'
+      shell: bash
+      run: echo "::warning::spiffe usecase mint soft-skip (cf-sts policy not on prod yet)."

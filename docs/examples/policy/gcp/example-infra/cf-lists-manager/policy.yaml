@@ -1,0 +1,10 @@
+# EXAMPLE — policy/gcp/<project>/<sa-short-name>/
+description: Example GCP SA rule
+
+rules:
+  - id: cf-lists-manager-write
+    principal: cf-lists-manager@example-infra.iam.gserviceaccount.com
+    max_ttl_seconds: 900
+    client_ips: ["203.0.113.10/32"]
+    grants:
+      - permissions: [Account Filter Lists Write]

@@ -1,0 +1,34 @@
+# Trusted OIDC issuers. Keys are short names used in the policy/ hierarchy
+# (policy/<provider>/<account>/<resource>[/<principal>]/...) and as rule.issuer.
+# Bundler expands them
+# into the flat iss → { type, jwks, algorithms } map the Worker consumes.
+#
+# GCP registers two iss strings (with and without https://).
+
+github:
+  type: github
+  iss: https://token.actions.githubusercontent.com
+  jwks: https://token.actions.githubusercontent.com/.well-known/jwks
+  algorithms: [RS256]
+
+gcp:
+  type: gcp
+  iss:
+    - https://accounts.google.com
+    - accounts.google.com
+  jwks: https://www.googleapis.com/oauth2/v3/certs
+  algorithms: [RS256]
+
+spiffe:
+  type: spiffe
+  iss: https://oidc-discovery.example.com
+  jwks: https://oidc-discovery.example.com/keys
+  algorithms: [RS256, ES256]
+
+# AWS IAM outbound identity federation (sts:GetWebIdentityToken), account 123456789012.
+# One issuer URL per AWS account; from `terraform output issuer_identifier` (infra/aws/issuer-usecase/terraform).
+aws:
+  type: aws
+  iss: https://00000000-0000-0000-0000-000000000000.tokens.sts.global.api.aws
+  jwks: https://00000000-0000-0000-0000-000000000000.tokens.sts.global.api.aws/.well-known/jwks.json
+  algorithms: [RS256]

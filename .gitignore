@@ -1,0 +1,10 @@
+node_modules/
+.wrangler/
+.dev.vars
+/.idea/
+
+# Generated from policy/** YAML (npm run build:policy); not committed
+policy.bundle.json
+
+# Local pointer to last compared internal commit (see .internal_version)
+.internal_version

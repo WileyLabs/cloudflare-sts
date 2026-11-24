@@ -1,0 +1,16 @@
+# github / example / cloudflare-sts / ci-usecase
+description: Example — GitHub OIDC mint for this repo (dns-read)
+
+rules:
+  - id: cloudflare-sts-ci-usecase-github
+    description: GitHub OIDC from main or pull_request
+    # GitHub may emit repo:ORG@ORG_ID/REPO@REPO_ID:… subjects; keep slug form too.
+    principal:
+      - repo:example/cloudflare-sts:ref:refs/heads/main
+      - repo:example/cloudflare-sts:pull_request
+      - repo:example@00000000/cloudflare-sts@1111111111:ref:refs/heads/main
+      - repo:example@00000000/cloudflare-sts@1111111111:pull_request
+    max_ttl_seconds: 300
+    grants:
+      - profile: dns-read
+        zones: [example.com]

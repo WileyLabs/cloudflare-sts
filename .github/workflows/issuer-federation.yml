@@ -1,0 +1,32 @@
+# Standalone / manual orchestrator: same matrix → reusable-issuer-smoke as ci.yml.
+name: issuer-federation
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  smoke:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - issuer: github
+            runs_on: ubuntu-latest
+          - issuer: gcp
+            runs_on: ubuntu-latest
+          - issuer: spiffe
+            runs_on: ubuntu-latest
+    uses: ./.github/workflows/reusable-issuer-smoke.yml
+    with:
+      issuer: ${{ matrix.issuer }}
+      runs_on: ${{ matrix.runs_on }}
+      cf_sts_url: https://cf-sts.example.com
+      audience: cf-sts.example.com
+    permissions:
+      contents: read
+      id-token: write

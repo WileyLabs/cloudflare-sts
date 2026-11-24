@@ -1,0 +1,83 @@
+# Thin dispatcher: inputs.issuer → .github/actions/issuer-usecase/<issuer> (static uses + if)
+name: reusable-issuer-usecase
+
+on:
+  workflow_call:
+    inputs:
+      issuer:
+        description: github | gcp | spiffe (aws is a separate soft-skip job)
+        required: true
+        type: string
+      runs_on:
+        description: Runner label (use a SPIRE-capable runner for SPIFFE)
+        required: false
+        type: string
+        default: ubuntu-latest
+      cf_sts_url:
+        required: false
+        type: string
+        default: https://cf-sts.example.com
+      audience:
+        required: false
+        type: string
+        default: cf-sts.example.com
+      allow_no_rule:
+        required: false
+        type: boolean
+        default: false
+      gcp_workload_identity_provider:
+        required: false
+        type: string
+        default: projects/000000000000/locations/global/workloadIdentityPools/github/providers/github-actions
+      gcp_service_account:
+        required: false
+        type: string
+        default: sa-ci@example-project.iam.gserviceaccount.com
+      spire_socket:
+        required: false
+        type: string
+        default: /spiffe-workload-api/spire-agent.sock
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  usecase:
+    name: usecase (${{ inputs.issuer }})
+    runs-on: ${{ inputs.runs_on }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: issuer-usecase/github
+        if: inputs.issuer == 'github'
+        uses: ./.github/actions/issuer-usecase/github
+        with:
+          cf_sts_url: ${{ inputs.cf_sts_url }}
+          audience: ${{ inputs.audience }}
+          allow_no_rule: ${{ inputs.allow_no_rule && 'true' || 'false' }}
+
+      - name: issuer-usecase/gcp
+        if: inputs.issuer == 'gcp'
+        uses: ./.github/actions/issuer-usecase/gcp
+        with:
+          cf_sts_url: ${{ inputs.cf_sts_url }}
+          audience: ${{ inputs.audience }}
+          allow_no_rule: ${{ inputs.allow_no_rule && 'true' || 'false' }}
+          gcp_workload_identity_provider: ${{ inputs.gcp_workload_identity_provider }}
+          gcp_service_account: ${{ inputs.gcp_service_account }}
+
+      - name: issuer-usecase/spiffe
+        if: inputs.issuer == 'spiffe'
+        uses: ./.github/actions/issuer-usecase/spiffe
+        with:
+          cf_sts_url: ${{ inputs.cf_sts_url }}
+          audience: ${{ inputs.audience }}
+          allow_no_rule: ${{ inputs.allow_no_rule && 'true' || 'false' }}
+          spire_socket: ${{ inputs.spire_socket }}
+
+      - name: Unknown issuer
+        if: inputs.issuer != 'github' && inputs.issuer != 'gcp' && inputs.issuer != 'spiffe'
+        run: |
+          echo "::error::unknown issuer '${{ inputs.issuer }}' (aws is a separate job)"
+          exit 1

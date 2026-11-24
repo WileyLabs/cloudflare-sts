@@ -1,0 +1,12 @@
+# spiffe / example.com / arc-runners / cf-sts-ci
+description: Example SPIFFE JWT-SVID → cf-sts
+
+rules:
+  - id: cloudflare-sts-ci-usecase-spiffe
+    description: Workload SVID minting DNS Read on example.com
+    principal:
+      - spiffe://example.com/ns/arc-runners/sa/arc-runners
+    max_ttl_seconds: 300
+    grants:
+      - profile: dns-read
+        zones: [example.com]

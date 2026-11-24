@@ -1,0 +1,86 @@
+name: issuer-usecase aws
+description: AWS identity (static key) → sts:GetWebIdentityToken → cf-sts mint → DNS Read → post-revoke
+
+inputs:
+  cf_sts_url:
+    default: https://cf-sts.example.com
+  audience:
+    default: cf-sts.example.com
+  allow_no_rule:
+    default: 'false'
+  # Static key of IAM user cf-sts-aws-usecase-ci (repo secrets). Never echoed or committed.
+  aws_access_key_id:
+    required: false
+    default: ''
+  aws_secret_access_key:
+    required: false
+    default: ''
+  aws_region:
+    default: us-east-1
+  # Kept for parity with the other issuer-usecase actions (unused here).
+  gcp_workload_identity_provider:
+    required: false
+    default: ''
+  gcp_service_account:
+    required: false
+    default: ''
+  spire_socket:
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    # `aws sts get-web-identity-token` needs AWS CLI v2 (recent). Install only when missing/old.
+    - name: Ensure AWS CLI v2
+      id: cli
+      shell: bash
+      run: |
+        set -euo pipefail
+        if ! aws sts get-web-identity-token help >/dev/null 2>&1; then
+          arch=$(uname -m)  # x86_64 | aarch64
+          tmp=$(mktemp -d)
+          curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-${arch}.zip" -o "$tmp/awscli.zip"
+          unzip -q "$tmp/awscli.zip" -d "$tmp"
+          "$tmp/aws/install" -i "$HOME/.local/aws-cli" -b "$HOME/.local/bin" --update
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+        fi
+
+    - name: Load AWS identity (static key)
+      id: auth
+      if: inputs.aws_access_key_id != '' && inputs.aws_secret_access_key != ''
+      continue-on-error: ${{ inputs.allow_no_rule == 'true' }}
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ inputs.aws_access_key_id }}
+        aws-secret-access-key: ${{ inputs.aws_secret_access_key }}
+        aws-region: ${{ inputs.aws_region }}
+
+    - name: Require AWS identity
+      if: inputs.allow_no_rule != 'true' && steps.auth.outcome != 'success'
+      shell: bash
+      run: |
+        echo "::error::AWS identity not loaded (set CF_STS_AWS_ACCESS_KEY_ID / CF_STS_AWS_SECRET_ACCESS_KEY repo secrets)"
+        exit 1
+
+    - name: Mint Cloudflare token (AWS web identity JWT via jwt-command)
+      id: sts
+      if: steps.auth.outcome == 'success'
+      continue-on-error: ${{ inputs.allow_no_rule == 'true' }}
+      uses: ./action
+      with:
+        url: ${{ inputs.cf_sts_url }}
+        audience: ${{ inputs.audience }}
+        ttl-seconds: '120'
+        permissions: DNS Read
+        jwt-command: AUDIENCE=${{ inputs.audience }} AWS_REGION=${{ inputs.aws_region }} bash ${{ github.workspace }}/scripts/ci/fetch-aws-jwt.sh
+
+    - name: Fetch DNS for cf-sts.example.com
+      if: steps.sts.outcome == 'success'
+      shell: bash
+      run: bash "${{ github.workspace }}/scripts/ci/assert-cf-dns-read.sh"
+
+    - name: Soft-skip when allow_no_rule
+      if: inputs.allow_no_rule == 'true' && steps.sts.outcome != 'success'
+      shell: bash
+      run: echo "::warning::aws usecase soft-skip (AWS key secrets not set, infra/aws/issuer-usecase not applied, issuer iss/jwks still placeholder, or cf-sts policy not on prod yet)."

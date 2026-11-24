@@ -1,0 +1,11 @@
+# gcp / example-project / sa-ci / cf-sts-ci
+description: Example GCP SA → Google ID token → cf-sts
+
+rules:
+  - id: cloudflare-sts-ci-usecase-gcp
+    description: CI / automation SA minting DNS Read on example.com
+    principal: sa-ci@example-project.iam.gserviceaccount.com
+    max_ttl_seconds: 300
+    grants:
+      - profile: dns-read
+        zones: [example.com]

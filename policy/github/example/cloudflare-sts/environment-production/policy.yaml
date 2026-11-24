@@ -1,0 +1,18 @@
+# github / example / cloudflare-sts / environment-production
+description: Example — production Environment deploy (wrangler + D1)
+
+rules:
+  - id: cloudflare-sts-deploy
+    description: Deploy from GitHub Environment production on main only
+    principal:
+      - repo:example/cloudflare-sts:environment:production
+      - repo:example@00000000/cloudflare-sts@1111111111:environment:production
+    claims:
+      ref: refs/heads/main
+      job_workflow_ref: example/cloudflare-sts/.github/workflows/cd.yml@refs/heads/main
+      environment: production
+    max_ttl_seconds: 900
+    grants:
+      - profile: worker-deploy-account
+      - profile: worker-deploy-zone
+        zones: [example.com]
