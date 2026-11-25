@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Example Terraform for the `gcp` issuer under `infra/gcp/issuer-usecase/` (service account, GitHub Actions and optional SPIFFE Workload Identity Federation).
+- Example SPIRE configuration for the `spiffe` issuer under `infra/spiffe/issuer-usecase/` (OIDC discovery, `jwt_issuer`, registration entry).
+
 ## [0.0.1] - 2026-11-24
 
 ### Added
